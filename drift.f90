@@ -5,6 +5,7 @@ subroutine drift
 
    integer i,j,k,l,np,ilayer,nlayer
    integer(8) idx,np_prev,ig(3),npcheck,ip,nzero,idx_ex_r(1-2*ncb:nt+2*ncb,1-2*ncb:nt+2*ncb)
+   integer(8),allocatable :: idx_base(:,:,:)
    integer(4),allocatable :: rhoce(:,:,:),rholocal(:,:,:)
    integer(8),dimension(nt,nt) :: pp_l,pp_r,ppe_l,ppe_r
    real(8) xq(ndim),deltax(ndim)!,vreal(ndim)

@@ -134,6 +134,7 @@ subroutine particle_mesh(density)
       sync all; call system_clock(t2,t_rate); if (head) print*, '     backward done.',real(t2-t1)/t_rate
 
       allocate(phi(-2:nc+3,-2:nc+3,-2:nc+3)[nn,nn,*])
+      phi=0
       phi(1:nc,1:nc,1:nc)=rho1
       call buffer_potential(phi,nc)
       allocate(force(ndim,0:pm%nforce+1,0:pm%nforce+1,0:pm%nforce+1))

@@ -319,7 +319,7 @@ contains
             Pk_cb_check(:,sim%cur_powerpoint) = xi_cdm(5,1:)[1]
             sync all; call system_clock(tp2,tpr); if (head) print*,'     global_power elapsed time =',real(tp2-tp1)/tpr
             i = istep-1
-            interp_powerpoint = merge(sim%cur_powerpoint,3,sim%cur_powerpoint > 2)
+            interp_powerpoint = merge(sim%cur_powerpoint,3_8,sim%cur_powerpoint > 2)
             a_pre = 1/(z_powerpoint(sim%cur_powerpoint-1)+1)! merge(1/(z_powerpoint(interp_powerpoint-1)+1),1/(z_powerpoint(1)+1),sim%cur_powerpoint == 2)
             ! if (head) print*,' ',a_pre,interp_powerpoint
             do while (a_step(i) >= a_pre .and. i >= 0)
@@ -333,7 +333,7 @@ contains
          power_step = .false.
       endif
 
-      interp_powerpoint = merge(sim%cur_powerpoint-1,3,sim%cur_powerpoint > 3)
+      interp_powerpoint = merge(sim%cur_powerpoint-1,3_8,sim%cur_powerpoint > 3)
       sPk_step(:,istep) = interp_quad(a_step(istep),interp_powerpoint,Pk_cb_check,z_powerpoint)
       if (calculate_PK == -1) then
          Pk_nus(:,1) = interp_quad(a_step(istep),interp_powerpoint,Pk_nu_check,z_powerpoint)

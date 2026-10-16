@@ -100,6 +100,7 @@ contains
       save
       integer(8) i1,islab
       complex,allocatable :: ctransfer(:,:,:)[:,:,:]
+      complex recv_block(nfg/2,nfg)
 
      ! print*,image
       !call flush(6)
@@ -115,7 +116,8 @@ contains
          ctransfer=rho1k_global(:,:,islab::(nfg/nn)) ! nn slabs of rho1k copied to ctransfer1
          sync all
          do i1=1,nn ! loop over parts in x, get slabs from each y node
-            cxyz_global(nfg*(i1-1)/2+1:nfg*i1/2,:,islab)=ctransfer(:,:,m2)[i1,m1,m3]
+            recv_block=ctransfer(:,:,m2)[i1,m1,m3]
+            cxyz_global(nfg*(i1-1)/2+1:nfg*i1/2,:,islab)=recv_block
          enddo
          sync all
       enddo
@@ -131,6 +133,7 @@ contains
       save
       integer(8) i1,islab
       complex,allocatable :: ctransfer(:,:,:)[:,:,:]
+      complex recv_block(nfg,nfg/2+1)
 
      ! print*,image
       !call flush(6)
@@ -144,7 +147,8 @@ contains
          enddo
          sync all
          do i1=1,nn
-            cyyxz_global(:,i1,:,islab)=ctransfer(:,:,m1)[i1,m2,m3]
+            recv_block=ctransfer(:,:,m1)[i1,m2,m3]
+            cyyxz_global(:,i1,:,islab)=recv_block
          enddo
          sync all
       enddo
@@ -161,6 +165,7 @@ contains
       save
       integer(8) i1,i2,islab
       complex,allocatable :: ctransfer(:,:,:,:)[:,:,:]
+      complex recv_block(nfg/nn,nfg/nn)
 
      ! print*,image
       !call flush(6)
@@ -177,7 +182,8 @@ contains
          sync all
          do i2=1,nn
             do i1=1,nn
-               czzzxy_global(:,i1,i2,islab,:)=ctransfer(:,:,m2,m3)[m1,i1,i2]
+               recv_block=ctransfer(:,:,m2,m3)[m1,i1,i2]
+               czzzxy_global(:,i1,i2,islab,:)=recv_block
             enddo
          enddo
          sync all
@@ -194,6 +200,7 @@ contains
       save
       integer(8) i1,i2,islab
       complex,allocatable :: ctransfer(:,:,:,:)[:,:,:]
+      complex recv_block(nfg/nn,nfg/nn)
 
      ! print*,image
       !call flush(6)
@@ -211,7 +218,8 @@ contains
          do i2=1,nn
             do i1=1,nn
                !cyyyxz(:,i1,i2,islab,:)=ctransfer(:,:,m2,m3)[m1,i1,i2]
-               cyyxz_global((nfg/nn)*(i1-1)+1:(nfg/nn)*i1,i2,islab,:)=ctransfer(:,:,m2,m3)[m1,i1,i2]
+               recv_block=ctransfer(:,:,m2,m3)[m1,i1,i2]
+               cyyxz_global((nfg/nn)*(i1-1)+1:(nfg/nn)*i1,i2,islab,:)=recv_block
             enddo
          enddo
          sync all
@@ -228,6 +236,7 @@ contains
       save
       integer(8) i1,islab
       complex,allocatable :: ctransfer(:,:,:)[:,:,:]
+      complex recv_block(nfg/2+1,nfg)
 
      ! print*,image
       !call flush(6)
@@ -241,7 +250,8 @@ contains
          enddo
          sync all
          do i1=1,nn
-            cxyz_global(nfg/2*(i1-1)+1:nfg/2*i1+1,:,islab)=ctransfer(:,:,m1)[i1,m2,m3]
+            recv_block=ctransfer(:,:,m1)[i1,m2,m3]
+            cxyz_global(nfg/2*(i1-1)+1:nfg/2*i1+1,:,islab)=recv_block
          enddo
          sync all
       enddo

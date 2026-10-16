@@ -84,6 +84,7 @@ module pencil_fft
     save
     integer(8) i1,islab
     complex,allocatable :: ctransfer(:,:,:)[:,:,:]
+    complex recv_block(nw/2,nw)
     !complex,allocatable :: rho1k_send(:,:,:)[:,:,:]
 
     if (.true.) then
@@ -93,7 +94,9 @@ module pencil_fft
       ctransfer=rho1k(:,:,islab::npen) ! nn slabs of rho1k copied to ctransfer1
       sync all
       do i1=1,nn ! loop over parts in x, get slabs from each y node
-        cxyz(nw*(i1-1)/2+1:nw*i1/2,:,islab)=ctransfer(:,:,m2)[i1,m1,m3]
+        ! Receive contiguously so CAF uses a block Get, then scatter locally.
+        recv_block=ctransfer(:,:,m2)[i1,m1,m3]
+        cxyz(nw*(i1-1)/2+1:nw*i1/2,:,islab)=recv_block
       enddo
       sync all
     enddo
@@ -118,6 +121,7 @@ module pencil_fft
     save
     integer(8) i1,islab
     complex,allocatable :: ctransfer(:,:,:)[:,:,:],cyxzx(:,:,:,:)[:,:,:]
+    complex recv_block(nw,nw/2+1)
     
     if (.true.) then
     allocate(ctransfer(nw,nw/2+1,nn)[nn,nn,*])
@@ -127,7 +131,8 @@ module pencil_fft
       enddo
       sync all
       do i1=1,nn
-        cyyxz(:,i1,:,islab)=ctransfer(:,:,m1)[i1,m2,m3]
+        recv_block=ctransfer(:,:,m1)[i1,m2,m3]
+        cyyxz(:,i1,:,islab)=recv_block
       enddo
       sync all
     enddo
@@ -159,6 +164,7 @@ module pencil_fft
     save
     integer(8) i1,i2,islab
     complex,allocatable :: ctransfer(:,:,:,:)[:,:,:]!,cyyyxz_t(:,:,:,:,:)[:,:,:]
+    complex recv_block(npen,npen)
     allocate(ctransfer(npen,npen,nn,nn)[nn,nn,*])
     !allocate(cyyyxz_t(npen,nn,nn,nw/2+1,npen)[nn,nn,*])
     
@@ -172,7 +178,8 @@ module pencil_fft
       sync all
       do i2=1,nn
       do i1=1,nn
-        czzzxy(:,i1,i2,islab,:)=ctransfer(:,:,m2,m3)[m1,i1,i2]
+        recv_block=ctransfer(:,:,m2,m3)[m1,i1,i2]
+        czzzxy(:,i1,i2,islab,:)=recv_block
       enddo
       enddo
       sync all
@@ -208,6 +215,7 @@ module pencil_fft
     save
     integer(8) i1,i2,islab
     complex,allocatable :: ctransfer(:,:,:,:)[:,:,:]
+    complex recv_block(npen,npen)
     if (.true.) then
     allocate(ctransfer(npen,npen,nn,nn)[nn,nn,*])
     do islab=1,nw/2+1 ! loop over slices in x direction
@@ -220,7 +228,8 @@ module pencil_fft
       do i2=1,nn
       do i1=1,nn
         !cyyyxz(:,i1,i2,islab,:)=ctransfer(:,:,m2,m3)[m1,i1,i2]
-        cyyxz(npen*(i1-1)+1:npen*i1,i2,islab,:)=ctransfer(:,:,m2,m3)[m1,i1,i2]
+        recv_block=ctransfer(:,:,m2,m3)[m1,i1,i2]
+        cyyxz(npen*(i1-1)+1:npen*i1,i2,islab,:)=recv_block
       enddo
       enddo
       sync all
@@ -251,6 +260,7 @@ module pencil_fft
     save
     integer(8) i1,islab
     complex,allocatable :: ctransfer(:,:,:)[:,:,:],cxyyz(:,:,:,:)[:,:,:]
+    complex recv_block(nw/2+1,nw)
     if (.true.) then
     allocate(ctransfer(nw/2+1,nw,nn)[nn,nn,*])
     do islab=1,npen ! loop over z
@@ -259,7 +269,8 @@ module pencil_fft
       enddo
       sync all
       do i1=1,nn
-        cxyz(nw/2*(i1-1)+1:nw/2*i1+1,:,islab)=ctransfer(:,:,m1)[i1,m2,m3]
+        recv_block=ctransfer(:,:,m1)[i1,m2,m3]
+        cxyz(nw/2*(i1-1)+1:nw/2*i1+1,:,islab)=recv_block
       enddo
       sync all
     enddo

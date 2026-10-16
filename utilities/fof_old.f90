@@ -268,14 +268,55 @@ program CUBE_FoF
     close(11)
     sim%cur_checkpoint=cur_checkpoint
     print*, '  buffer phi'
-    phi(0,:,:)=phi(ng,:,:)[inx,icy,icz]
-    phi(ng+1,:,:)=phi(1,:,:)[ipx,icy,icz]
-    sync all
-    phi(:,0,:)=phi(:,ng,:)[icx,iny,icz]
-    phi(:,ng+1,:)=phi(:,1,:)[icx,ipy,icz]
-    sync all
-    phi(:,:,0)=phi(:,:,ng)[icx,icy,inz]
-    phi(:,:,ng+1)=phi(:,:,1)[icx,icy,ipz]
+    block
+      real,allocatable :: sbuf_x(:,:)[:,:,:]
+      real,allocatable :: sbuf_y(:,:)[:,:,:]
+      real,allocatable :: sbuf_z(:,:)[:,:,:]
+      real :: rbuf_x(ng+2,ng+2)
+      real :: rbuf_y(ng+2,ng+2)
+      real :: rbuf_z(ng+2,ng+2)
+      allocate(sbuf_x(ng+2,ng+2)[nn,nn,*])
+      sync all
+      sbuf_x = phi(ng,:,:)
+      sync all
+      rbuf_x = sbuf_x(:,:)[inx,icy,icz]
+      phi(0,:,:) = rbuf_x
+      sync all
+      sbuf_x = phi(1,:,:)
+      sync all
+      rbuf_x = sbuf_x(:,:)[ipx,icy,icz]
+      phi(ng+1,:,:) = rbuf_x
+      sync all
+      deallocate(sbuf_x)
+
+      allocate(sbuf_y(ng+2,ng+2)[nn,nn,*])
+      sync all
+      sbuf_y = phi(:,ng,:)
+      sync all
+      rbuf_y = sbuf_y(:,:)[icx,iny,icz]
+      phi(:,0,:) = rbuf_y
+      sync all
+      sbuf_y = phi(:,1,:)
+      sync all
+      rbuf_y = sbuf_y(:,:)[icx,ipy,icz]
+      phi(:,ng+1,:) = rbuf_y
+      sync all
+      deallocate(sbuf_y)
+
+      allocate(sbuf_z(ng+2,ng+2)[nn,nn,*])
+      sync all
+      sbuf_z = phi(:,:,ng)
+      sync all
+      rbuf_z = sbuf_z(:,:)[icx,icy,inz]
+      phi(:,:,0) = rbuf_z
+      sync all
+      sbuf_z = phi(:,:,1)
+      sync all
+      rbuf_z = sbuf_z(:,:)[icx,icy,ipz]
+      phi(:,:,ng+1) = rbuf_z
+      sync all
+      deallocate(sbuf_z)
+    end block
 
     nhalo=0;
     do ip=1,nplocal

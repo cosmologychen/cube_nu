@@ -10,10 +10,8 @@ subroutine kick
   logical,parameter :: PP=.true.
    logical,parameter :: PP_corr=.true.
    logical,parameter :: speedtest=.false.
-   integer inode,itile,np_phy,nl(3),nh(3),i1,i2,it,i3,isort(ns3),ires(ns3),rcp,npgrid,nptile
-   integer,allocatable :: ll(:),hoc(:,:,:)
-   integer(8),allocatable :: ip_local(:)
-   real,allocatable :: rho_th(:,:,:),phi_th(:,:,:),force_th(:,:,:,:),xf(:,:),vf(:,:),af(:,:)
+   integer inode,itile,np_phy,nl(3),nh(3),i1,i2,it,i3,isort(ns3),ires(ns3)
+   real,allocatable :: rho_th(:,:,:),phi_th(:,:,:),force_th(:,:,:,:)
    real(8),allocatable :: ptotal(:),ttotal(:)
    real(8) pt
    real npc_max(ns3),overden_phy
@@ -173,8 +171,7 @@ subroutine kick
             speed(3,iapm,itile)=ttotal(itile)
          enddo
          !$omp paralleldo num_threads(nteam) schedule(dynamic,1)&
-         !$omp& default(shared) private(it,iteam,itile,nl,nh,i1,i2,i3,pm,rho_th,force_th,vmax_team,f2max_team)&
-         !$omp& private(rcp,npgrid,nptile,ll,hoc,ip_local,xf,vf,af)&
+         !$omp& default(shared) private(it,iteam,itile,i1,i2,i3,pm,vmax_team,f2max_team)&
          !$omp& reduction(max:vmax,f2max) reduction(+:pt)
          do it=1,ns3
             iteam=omp_get_thread_num()+1; itile=isort(it); i1=ixyz3(4,itile); i2=ixyz3(5,itile); i3=ixyz3(6,itile);
@@ -182,12 +179,7 @@ subroutine kick
             pm%tile1(:)=ixyz3(4:6,itile); pm%tile2(:)=ixyz3(4:6,itile);pm%nloop=1; pm%nex=nfb(iapm)+1; pm%nphy=nfp(iapm);
             pm%gridsize=1./ratio_sf(iapm); pm%tile_shift=0; pm%utile_shift=ixyz3(1:3,itile)-1; pm%m1=1-nfb(iapm); pm%m2=nfp(iapm)+nfb(iapm);pm%nforce=nfp(iapm); pm%m1phi(:)=1-nfb(iapm); pm%m2phi(:)=nfp(iapm)+nfb(iapm); pm%m2phi(1)=pm%m2phi(1)+2
             pm%sigv1=sigma_vi; pm%sigv2=sigma_vi; pm%nc1(:)=(ixyz3(1:3,itile)-1)*ntt+1; pm%nc2(:)=ixyz3(1:3,itile)*ntt
-            nl=pm%nc1; nh=pm%nc2(:); rcp=ratio_sf(iapm); npgrid=ntt*rcp
-            nptile=sum(rhoc(nl(1)-1:nh(1)+1,nl(2)-1:nh(2)+1,nl(3)-1:nh(3)+1,pm%tile1(1),pm%tile1(2),pm%tile1(3)))
-            allocate(ll(nptile),hoc(1-rcp:npgrid+rcp,1-rcp:npgrid+rcp,1-rcp:npgrid+rcp))
-            allocate(ip_local(nptile),xf(3,nptile),vf(3,nptile),af(3,nptile))
-            call PP_Force(ll,hoc,ip_local,xf,vf,af,pm,itile,iteam,f2max_team,vmax_team)
-            deallocate(ll,hoc,ip_local,xf,vf,af)
+            call PP_Force(pm,itile,iteam,f2max_team,vmax_team)
             speed(4,iapm,itile)=ttotal(itile)
          enddo
          !$omp endparalleldo
@@ -290,9 +282,8 @@ subroutine kick
       call tic(14)
       allocate(ptotal(ns3),ttotal(ns3))
       vmax=0; f2max=0; pt=0
-      !$omp paralleldo num_threads(nteam) schedule(dynamic,1)&
-      !$omp& default(shared) private(it,iteam,itile,iapm,nl,nh,i1,i2,i3,pm,rho_th,force_th,vmax_team,f2max_team)&
-      !$omp& private(rcp,npgrid,nptile,ll,hoc,ip_local,xf,vf,af)&
+      !$omp paralleldo num_threads(ncore) schedule(dynamic,1)&
+      !$omp& default(shared) private(it,iteam,itile,iapm,i1,i2,i3,pm,vmax_team,f2max_team)&
       !$omp& reduction(max:vmax,f2max) reduction(+:pt)
       do it=1,ns3
          iteam=omp_get_thread_num()+1; itile=isort(it); iapm=ires(itile);i1=ixyz3(4,itile); i2=ixyz3(5,itile); i3=ixyz3(6,itile);
@@ -300,12 +291,7 @@ subroutine kick
          pm%tile1(:)=ixyz3(4:6,itile); pm%tile2(:)=ixyz3(4:6,itile);pm%nloop=1; pm%nex=nfb(iapm)+1; pm%nphy=nfp(iapm);
          pm%gridsize=1./ratio_sf(iapm); pm%tile_shift=0; pm%utile_shift=ixyz3(1:3,itile)-1; pm%m1=1-nfb(iapm); pm%m2=nfp(iapm)+nfb(iapm);pm%nforce=nfp(iapm); pm%m1phi(:)=1-nfb(iapm); pm%m2phi(:)=nfp(iapm)+nfb(iapm); pm%m2phi(1)=pm%m2phi(1)+2
          pm%sigv1=sigma_vi; pm%sigv2=sigma_vi; pm%nc1(:)=(ixyz3(1:3,itile)-1)*ntt+1; pm%nc2(:)=ixyz3(1:3,itile)*ntt
-         nl=pm%nc1; nh=pm%nc2(:); rcp=ratio_sf(iapm); npgrid=ntt*rcp
-         nptile=sum(rhoc(nl(1)-1:nh(1)+1,nl(2)-1:nh(2)+1,nl(3)-1:nh(3)+1,pm%tile1(1),pm%tile1(2),pm%tile1(3)))
-         allocate(ll(nptile),hoc(1-rcp:npgrid+rcp,1-rcp:npgrid+rcp,1-rcp:npgrid+rcp))
-         allocate(ip_local(nptile),xf(3,nptile),vf(3,nptile),af(3,nptile))
-         call PP_Force(ll,hoc,ip_local,xf,vf,af,pm,itile,iteam,f2max_team,vmax_team)
-         deallocate(ll,hoc,ip_local,xf,vf,af)
+         call PP_Force(pm,itile,iteam,f2max_team,vmax_team)
          f2max=max(f2max,f2max_team); vmax=max(vmax,vmax_team)
       enddo
       !$omp endparalleldo
@@ -371,36 +357,71 @@ contains
 
 
 
-   subroutine PP_Force(ll,hoc,ip_local,xf,vf,af,pm,itile,iteam,f2max_t,vmax_t)
+   pure elemental real function F_ra_inline(r,apm)
+      real,intent(in) :: r,apm
+      real ep
+      F_ra_inline=0
+      ep=2*r/apm
+      if (apm==0 .or. ep>2) then
+         F_ra_inline=r**(-2)
+      elseif (ep>1) then
+         F_ra_inline=(1./35./apm**2)*(12*ep**(-2) - 224 + 896*ep - 840*ep**2 + 224*ep**3 + 70*ep**4 - 48*ep**5 + 7*ep**6)
+      elseif (ep>0) then
+         F_ra_inline=(1./35./apm**2)*(224*ep - 224*ep**3 + 70*ep**4 + 48*ep**5 - 21*ep**6)
+      else
+         F_ra_inline=0
+      endif
+   endfunction
+
+   subroutine PP_Force(pm,itile,iteam,f2max_t,vmax_t)
       use omp_lib
       implicit none
       type(type_pm) pm
-      integer(4) i_neighbor,nptile,itile,iteam,iapm,rcp,npgrid,nl(3),nh(3),ncount,tteam1,tteam2,tteam_rate
-      integer i,j,k,ilayer,np,l,idx(3),ip1,ip2,ipenz,ipeny,ipenx,nz,ny,nx,iz,iy,ix,n_iter,i_iter
-      integer ll(:),hoc(1-ratio_sf(pm%iapm):,1-ratio_sf(pm%iapm):,1-ratio_sf(pm%iapm):)!,ip_local(:)
-      integer(8) ip,nzero,ip_local(:)
-      real xvec(3),rvec(3),rmag,fpp(3),pp_range,xf(:,:),vf(:,:),af(:,:),f2max_t,vmax_t(:),nbb
+      integer(4) i_neighbor,nptile,itile,iteam,iapm,rcp,npgrid,ncount,tteam1,tteam2,tteam_rate
+      integer i,j,k,np,l,idx(3),ip1,ip2,pos,cnt,i_act,s1,e1,s2,e2
+      integer n_phy_cnt,n_ext_cnt,n_act,n_act_ext
+      integer,allocatable :: cell_start(:,:,:),cell_count(:,:,:),cell_offset(:,:,:),p_cell(:,:)
+      integer,allocatable :: active_ijk(:,:),active_ext_ijk(:,:)
+      integer(8) ip,nzero
+      integer(8),allocatable :: ip_tmp(:),ip_local(:)
+      real xvec(3),rvec(3),rmag,r2,fpp(3),f1(3),pp_range,pp_range2,f2max_t,vmax_t(:),nbb,mass_scale,v_scale
+      real,allocatable :: xf_tmp(:,:),xf(:,:),af(:,:)
 
       call system_clock(tteam1,tteam_rate)
       iapm=pm%iapm
-      pp_range=apm3(iapm); rcp=ratio_sf(iapm); npgrid=ntt*rcp
-      hoc=0; ll=0; ip1=0; af=0; f2max_t=0; vmax_t=0; nbb = npgrid+rcp
+      pp_range=apm3(iapm); pp_range2=pp_range**2; rcp=ratio_sf(iapm); npgrid=ntt*rcp
+      f2max_t=0; vmax_t=0; nbb = npgrid+rcp
+
+      nptile=sum(rhoc(pm%nc1(1)-1:pm%nc2(1)+1,pm%nc1(2)-1:pm%nc2(2)+1,pm%nc1(3)-1:pm%nc2(3)+1, &
+                      pm%tile1(1),pm%tile1(2),pm%tile1(3)))
+      if (nptile == 0) then
+         ptotal(itile)=0
+         call system_clock(tteam2,tteam_rate)
+         ttotal(itile)=real(tteam2-tteam1)/tteam_rate
+         return
+      endif
+
+      allocate(cell_start(0:npgrid+1,0:npgrid+1,0:npgrid+1))
+      allocate(cell_count(0:npgrid+1,0:npgrid+1,0:npgrid+1))
+      allocate(cell_offset(0:npgrid+1,0:npgrid+1,0:npgrid+1))
+      allocate(p_cell(3,nptile),xf_tmp(3,nptile),ip_tmp(nptile))
+
+      cell_count=0; ip1=0; n_phy_cnt=0; n_ext_cnt=0
+
+      ! Pass 1: compute fine cell indices and count particles in [0..npgrid+1]^3
       do k=pm%nc1(3)-1,pm%nc2(3)+1
          do j=pm%nc1(2)-1,pm%nc2(2)+1
             do i=pm%nc1(1)-1,pm%nc2(1)+1
                np=rhoc(i,j,k,pm%tile1(1),pm%tile1(2),pm%tile1(3))
                nzero=idx_b_r(j,k,pm%tile1(1),pm%tile1(2),pm%tile1(3))-sum(rhoc(i:,j,k,pm%tile1(1),pm%tile1(2),pm%tile1(3)))
                do l=1,np
-                  ip=nzero+l; ip1=ip1+1; ip_local(ip1)=ip
+                  ip=nzero+l; ip1=ip1+1; ip_tmp(ip1)=ip
 #ifdef ZIPX
                   xvec=[i,j,k]-1+(int(xp(:,ip)+ishift,izipx)+rshift)*x_resolution
 #else
                   xvec = xp(:,ip)/ratio_cs - (pm%tile1(:)-1)*nt
 #endif
-                  xf(:,ip1)=xvec*ratio_cs
-                  !vf(:,ip1)=tan(pi*real(vp(:,ip))/real(nvbin-1))/(sqrt(pi/2)/(sigma_vi*vrel_boost))
-                  vf(:,ip1)=vp(:,ip)
-
+                  xf_tmp(:,ip1)=xvec*ratio_cs
                   xvec = rcp*(xvec-pm%utile_shift*ntt)
 #ifndef ZIPX
                   if ( xvec(1) == nbb ) xvec(1)= 1-rcp
@@ -413,7 +434,7 @@ contains
                      print*,ip,'ijk',i,j,k
                      print*,ip,'xp',xp(:,ip)
                      print*,ip,'xvec',xp(:,ip)/ratio_cs - (pm%tile1(:)-1)*nt
-                     print*,ip,'xf',xf(:,ip1)
+                     print*,ip,'xf',xf_tmp(:,ip1)
                      print*,ip,'xfg',xp(:,ip)/ratio_cs - (pm%tile1(:)-1)*nt-pm%utile_shift*ntt
                      print*,ip,'xff',xvec
                      print*,ip,'idx',idx
@@ -422,108 +443,145 @@ contains
                      print*,ip,'nc2',pm%nc2
                      error stop
                   endif
-                  ll(ip1)=hoc(idx(1),idx(2),idx(3))
-                  hoc(idx(1),idx(2),idx(3))=ip1
+                  if (minval(idx)>=0 .and. maxval(idx)<=npgrid+1) then
+                     p_cell(:,ip1)=idx
+                     cell_count(idx(1),idx(2),idx(3))=cell_count(idx(1),idx(2),idx(3))+1
+                     n_ext_cnt=n_ext_cnt+1
+                     if (minval(idx)>=1 .and. maxval(idx)<=npgrid) then
+                        n_phy_cnt=n_phy_cnt+1
+                     endif
+                  else
+                     p_cell(1,ip1)=-999
+                  endif
                enddo
             enddo
          enddo
       enddo
+
+      allocate(active_ijk(3,max(1,n_phy_cnt)))
+      allocate(active_ext_ijk(3,max(1,n_ext_cnt)))
+      allocate(xf(3,max(1,n_ext_cnt)))
+      allocate(af(3,max(1,n_ext_cnt)))
+      allocate(ip_local(max(1,n_phy_cnt)))
+      af=0.0
+
+      ! Pass 2: prefix sum over fine cells (physical 1..npgrid first, then ghost cells in 0..npgrid+1)
+      pos=1; n_act=0; n_act_ext=0
+      do k=1,npgrid
+         do j=1,npgrid
+            do i=1,npgrid
+               cnt=cell_count(i,j,k)
+               cell_start(i,j,k)=pos
+               cell_offset(i,j,k)=pos
+               pos=pos+cnt
+               if (cnt>0) then
+                  n_act=n_act+1
+                  active_ijk(:,n_act)=[i,j,k]
+               endif
+            enddo
+         enddo
+      enddo
+
+      do k=0,npgrid+1
+         do j=0,npgrid+1
+            do i=0,npgrid+1
+               cnt=cell_count(i,j,k)
+               if (cnt>0) then
+                  n_act_ext=n_act_ext+1
+                  active_ext_ijk(:,n_act_ext)=[i,j,k]
+               endif
+               if (i>=1 .and. i<=npgrid .and. j>=1 .and. j<=npgrid .and. k>=1 .and. k<=npgrid) cycle
+               cell_start(i,j,k)=pos
+               cell_offset(i,j,k)=pos
+               pos=pos+cnt
+            enddo
+         enddo
+      enddo
+
+      ! Pass 3: scatter particles into contiguous CSR order
+      do l=1,ip1
+         if (p_cell(1,l)/=-999) then
+            pos=cell_offset(p_cell(1,l),p_cell(2,l),p_cell(3,l))
+            xf(:,pos)=xf_tmp(:,l)
+            if (pos<=n_phy_cnt) then
+               ip_local(pos)=ip_tmp(l)
+            endif
+            cell_offset(p_cell(1,l),p_cell(2,l),p_cell(3,l))=pos+1
+         endif
+      enddo
+
+      deallocate(p_cell,cell_offset,xf_tmp,ip_tmp)
 
       !self pp
-      !print*,'self pp'
-      !$omp paralleldo default(shared) num_threads(nnest) schedule(dynamic)&
-      !$omp& private(k,j,i,ip1,ip2,rvec,rmag,fpp)
-      do k=1,npgrid
-         do j=1,npgrid
-            do i=1,npgrid
-               ip1=hoc(i,j,k)
-               do while(ip1/=0) ! particle A
-                  ip2=ll(ip1)
-                  do while (ip2/=0) ! particle B in the same cell
-                     rvec=xf(:,ip2)-xf(:,ip1); rmag=norm2(rvec)
-                     if (0.<rmag .and. rmag<pp_range) then
-                        fpp=rvec/rmag*(F_ra(rmag,app)-F_ra(rmag,pp_range))
-                        af(:,ip1)=af(:,ip1)+fpp
-                        af(:,ip2)=af(:,ip2)-fpp
-                     endif
-                     ip2=ll(ip2)
-                  enddo ! particle B
-                  ip1=ll(ip1)
-               enddo ! particle A
+      do i_act=1,n_act
+         i=active_ijk(1,i_act); j=active_ijk(2,i_act); k=active_ijk(3,i_act)
+         s1=cell_start(i,j,k)
+         e1=s1+cell_count(i,j,k)-1
+         do ip1=s1,e1-1
+            f1=af(:,ip1)
+            do ip2=ip1+1,e1
+               rvec=xf(:,ip2)-xf(:,ip1)
+               r2=rvec(1)*rvec(1)+rvec(2)*rvec(2)+rvec(3)*rvec(3)
+               if (0.<r2 .and. r2<pp_range2) then
+                  rmag=sqrt(r2)
+                  fpp=rvec/rmag*(F_ra_inline(rmag,app)-F_ra_inline(rmag,pp_range))
+                  f1=f1+fpp
+                  af(:,ip2)=af(:,ip2)-fpp
+               endif
             enddo
+            af(:,ip1)=f1
          enddo
       enddo
-      !$omp endparalleldo
 
-      !print*,'neigh pp'
-      do ipenz=0,1
-         do ipeny=0,2 ! divide all pencils into 6 bundles
-            do ipenx=0,2
-               nz=(npgrid+1-ipenz)/2+1
-               ny=(npgrid+1-ipeny)/3+1
-               nx=(npgrid+1-ipenx)/3+1
-               n_iter=nz*ny*nx ! number of pencils
-               !$omp paralleldo default(shared) num_threads(nnest) schedule(dynamic)&
-               !$omp& private(i_iter,iz,iy,ix,k,j,i,ip1,ip2,rvec,rmag,fpp,i_neighbor,idx)
-               do i_iter=0,n_iter-1 ! (loop over all [k,j] pencils of the bundle)
-                  !iz=i_iter/ny
-                  !iy=mod(i_iter,ny)
-                  iz=i_iter/(ny*nx)
-                  iy=(i_iter-ny*nx*iz)/nx
-                  ix=mod(i_iter,nx)
-                  k=ipenz+2*iz
-                  j=ipeny+3*iy
-                  i=ipenx+3*ix
-                  !do i=0,npgrid+1
-                  ip1=hoc(i,j,k)
-                  do while(ip1/=0) ! particle A
-                     do i_neighbor=1,n_neighbor ! neighbor cells
-                        idx=[i,j,k]+ijk(:,i_neighbor)
-                        if (minval(idx)<0 .or. maxval(idx)>npgrid+1) cycle
-                        ip2=hoc(idx(1),idx(2),idx(3))
-                        do while (ip2/=0) ! particle B
-                           rvec=xf(:,ip2)-xf(:,ip1); rmag=norm2(rvec)
-                           if (rmag<pp_range) then
-                              fpp=rvec/rmag*(F_ra(rmag,app)-F_ra(rmag,pp_range))
-                              af(:,ip1)=af(:,ip1)+fpp
-                              af(:,ip2)=af(:,ip2)-fpp
-                           endif
-                           ip2=ll(ip2)
-                        enddo
-                     enddo
-                     ip1=ll(ip1)
-                  enddo
-                  !enddo ! i
-               enddo ! i_iter (loop over k,j)
-               !$omp endparalleldo
-            enddo ! ipenx
-         enddo ! ipeny
-      enddo ! ipenz
-
-      !print*,'update v'
-      ncount=0
-      if(PP_corr .and. Mass_nu > 0) then
-         af=af*sim%mass_p_cdm*((1-f_nu)**2)
-      else
-         af=af*sim%mass_p_cdm
-      endif
-      do k=1,npgrid
-         do j=1,npgrid
-            do i=1,npgrid
-               ip1=hoc(i,j,k)
-               do while (ip1/=0)
-                  ncount=ncount+1
-                  f2max_t=max(f2max_t,sum(af(:,ip1)**2))
-                  ip=ip_local(ip1)
-                  !vreal=vf(:,ip1)+af(:,ip1)*a_mid*dt/6/pi
-                  vp(:,ip)=vp(:,ip)+af(:,ip1)*a_mid*dt/6/pi
-                  vmax_t=max(vmax_t,abs(vp(:,ip)))
-                  !vp(:,ip)=nint(real(nvbin-1)*atan(sqrt(pi/2)/(sigma_vi*vrel_boost)*vreal)/pi,kind=izipv)
-                  ip1=ll(ip1)
+      !neigh pp: include active ghost cells in 0..npgrid+1
+      do i_act=1,n_act_ext
+         i=active_ext_ijk(1,i_act); j=active_ext_ijk(2,i_act); k=active_ext_ijk(3,i_act)
+         s1=cell_start(i,j,k)
+         e1=s1+cell_count(i,j,k)-1
+         do i_neighbor=1,n_neighbor
+            idx=[i,j,k]+ijk(:,i_neighbor)
+            if (minval(idx)<0 .or. maxval(idx)>npgrid+1) cycle
+            ! Neither buffer cell contributes to a physical particle update.
+            if (min(i,j,k)==0 .or. max(i,j,k)==npgrid+1) then
+               if (minval(idx)==0 .or. maxval(idx)==npgrid+1) cycle
+            endif
+            if (cell_count(idx(1),idx(2),idx(3))==0) cycle
+            s2=cell_start(idx(1),idx(2),idx(3))
+            e2=s2+cell_count(idx(1),idx(2),idx(3))-1
+            do ip1=s1,e1
+               f1=af(:,ip1)
+               do ip2=s2,e2
+                  rvec=xf(:,ip2)-xf(:,ip1)
+                  r2=rvec(1)*rvec(1)+rvec(2)*rvec(2)+rvec(3)*rvec(3)
+                  if (r2<pp_range2) then
+                     rmag=sqrt(r2)
+                     fpp=rvec/rmag*(F_ra_inline(rmag,app)-F_ra_inline(rmag,pp_range))
+                     f1=f1+fpp
+                     af(:,ip2)=af(:,ip2)-fpp
+                  endif
                enddo
+               af(:,ip1)=f1
             enddo
          enddo
       enddo
+
+      !update v: physical particles occupy the contiguous prefix
+      if (PP_corr .and. Mass_nu > 0) then
+         mass_scale=sim%mass_p_cdm*((1-f_nu)**2)
+      else
+         mass_scale=sim%mass_p_cdm
+      endif
+      v_scale=a_mid*dt/6/pi
+      ncount=n_phy_cnt
+      do ip1=1,ncount
+         f1=af(:,ip1)*mass_scale
+         f2max_t=max(f2max_t,sum(f1**2))
+         ip=ip_local(ip1)
+         vp(:,ip)=vp(:,ip)+f1*v_scale
+         vmax_t=max(vmax_t,abs(vp(:,ip)))
+      enddo
+
+      deallocate(cell_start,cell_count,active_ijk,active_ext_ijk,xf,af,ip_local)
       ptotal(itile)=ncount
       call system_clock(tteam2,tteam_rate)
       ttotal(itile)=real(tteam2-tteam1)/tteam_rate

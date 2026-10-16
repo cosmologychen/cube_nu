@@ -27,7 +27,7 @@ program cicpower
    real(4),allocatable :: xp(:,:)
 #endif
 
-   real(4),allocatable :: xv(:,:),rho_grid(:,:,:)[:,:,:],rho_c(:,:,:)[:,:,:],rho_etc(:,:,:),proj_xy(:,:)
+   real(4),allocatable :: xv(:,:),rho_grid(:,:,:)[:,:,:],rho_c(:,:,:)[:,:,:],proj_local(:,:)[:,:,:],proj_xy(:,:)
    real kh_lin(npbin),kh_lin_log(npbin),tf_F(npbin),tf_F_log(npbin),Pk_nu(npbin),Pk_nu_log(npbin)
 
 
@@ -105,12 +105,55 @@ program cicpower
       deallocate(xp)
       if (head) print*, 'sync buffer'
       sync all
-      rho_grid(1,:,:)=rho_grid(1,:,:)+rho_grid(nw+1,:,:)[inx,icy,icz]
-      rho_grid(nw,:,:)=rho_grid(nw,:,:)+rho_grid(0,:,:)[ipx,icy,icz]; sync all
-      rho_grid(:,1,:)=rho_grid(:,1,:)+rho_grid(:,nw+1,:)[icx,iny,icz]
-      rho_grid(:,nw,:)=rho_grid(:,nw,:)+rho_grid(:,0,:)[icx,ipy,icz]; sync all
-      rho_grid(:,:,1)=rho_grid(:,:,1)+rho_grid(:,:,nw+1)[icx,icy,inz]
-      rho_grid(:,:,nw)=rho_grid(:,:,nw)+rho_grid(:,:,0)[icx,icy,ipz]; sync all
+      block
+         real,allocatable :: sbuf_x(:,:)[:,:,:]
+         real,allocatable :: sbuf_y(:,:)[:,:,:]
+         real,allocatable :: sbuf_z(:,:)[:,:,:]
+         real :: rbuf_x(nw+2,nw+2)
+         real :: rbuf_y(nw+2,nw+2)
+         real :: rbuf_z(nw+2,nw+2)
+         allocate(sbuf_x(nw+2,nw+2)[nn,nn,*])
+         sync all
+         sbuf_x = rho_grid(nw+1,:,:)
+         sync all
+         rbuf_x = sbuf_x(:,:)[inx,icy,icz]
+         rho_grid(1,:,:) = rho_grid(1,:,:) + rbuf_x
+         sync all
+         sbuf_x = rho_grid(0,:,:)
+         sync all
+         rbuf_x = sbuf_x(:,:)[ipx,icy,icz]
+         rho_grid(nw,:,:) = rho_grid(nw,:,:) + rbuf_x
+         sync all
+         deallocate(sbuf_x)
+
+         allocate(sbuf_y(nw+2,nw+2)[nn,nn,*])
+         sync all
+         sbuf_y = rho_grid(:,nw+1,:)
+         sync all
+         rbuf_y = sbuf_y(:,:)[icx,iny,icz]
+         rho_grid(:,1,:) = rho_grid(:,1,:) + rbuf_y
+         sync all
+         sbuf_y = rho_grid(:,0,:)
+         sync all
+         rbuf_y = sbuf_y(:,:)[icx,ipy,icz]
+         rho_grid(:,nw,:) = rho_grid(:,nw,:) + rbuf_y
+         sync all
+         deallocate(sbuf_y)
+
+         allocate(sbuf_z(nw+2,nw+2)[nn,nn,*])
+         sync all
+         sbuf_z = rho_grid(:,:,nw+1)
+         sync all
+         rbuf_z = sbuf_z(:,:)[icx,icy,inz]
+         rho_grid(:,:,1) = rho_grid(:,:,1) + rbuf_z
+         sync all
+         sbuf_z = rho_grid(:,:,0)
+         sync all
+         rbuf_z = sbuf_z(:,:)[icx,icy,ipz]
+         rho_grid(:,:,nw) = rho_grid(:,:,nw) + rbuf_z
+         sync all
+         deallocate(sbuf_z)
+      end block
 
       do i=1,nw
          do j=1,nw
@@ -145,7 +188,8 @@ program cicpower
       endif
       sync all
 #ifdef merge_projection
-      allocate(rho_etc(nw,nw,nw))
+      allocate(proj_local(nw,nw)[nn,nn,*])
+      proj_local = sum(rho_c*1d0,dim=3)/nw
       write(str_i,'(i6)') image
       write(str_z,'(f7.3)') z_checkpoint(cur_checkpoint)
       sync all
@@ -157,9 +201,8 @@ program cicpower
             do iy=1,nn
                do ix=1,nn
                   idx=[ix,iy,iz]*nw ! upper index of each dim
-                  rho_etc=rho_c(:,:,:)[ix,iy,iz]
                   proj_xy(idx(1)-nw+1:idx(1),idx(2)-nw+1:idx(2))&
-                     =proj_xy(idx(1)-nw+1:idx(1),idx(2)-nw+1:idx(2))+sum(rho_etc*1d0,dim=3)/nw
+                     =proj_xy(idx(1)-nw+1:idx(1),idx(2)-nw+1:idx(2))+proj_local(:,:)[ix,iy,iz]
                enddo
             enddo
          enddo
@@ -169,7 +212,7 @@ program cicpower
          close(11)
          deallocate(proj_xy)
       endif
-      deallocate(rho_etc)
+      deallocate(proj_local)
       sync all
 #endif
 
@@ -270,12 +313,55 @@ program cicpower
       sync all
       if (head) print*, 'sync buffer'
       sync all
-      rho_grid(1,:,:)=rho_grid(1,:,:)+rho_grid(nw+1,:,:)[inx,icy,icz]
-      rho_grid(nw,:,:)=rho_grid(nw,:,:)+rho_grid(0,:,:)[ipx,icy,icz]; sync all
-      rho_grid(:,1,:)=rho_grid(:,1,:)+rho_grid(:,nw+1,:)[icx,iny,icz]
-      rho_grid(:,nw,:)=rho_grid(:,nw,:)+rho_grid(:,0,:)[icx,ipy,icz]; sync all
-      rho_grid(:,:,1)=rho_grid(:,:,1)+rho_grid(:,:,nw+1)[icx,icy,inz]
-      rho_grid(:,:,nw)=rho_grid(:,:,nw)+rho_grid(:,:,0)[icx,icy,ipz]; sync all
+      block
+         real,allocatable :: sbuf_x(:,:)[:,:,:]
+         real,allocatable :: sbuf_y(:,:)[:,:,:]
+         real,allocatable :: sbuf_z(:,:)[:,:,:]
+         real :: rbuf_x(nw+2,nw+2)
+         real :: rbuf_y(nw+2,nw+2)
+         real :: rbuf_z(nw+2,nw+2)
+         allocate(sbuf_x(nw+2,nw+2)[nn,nn,*])
+         sync all
+         sbuf_x = rho_grid(nw+1,:,:)
+         sync all
+         rbuf_x = sbuf_x(:,:)[inx,icy,icz]
+         rho_grid(1,:,:) = rho_grid(1,:,:) + rbuf_x
+         sync all
+         sbuf_x = rho_grid(0,:,:)
+         sync all
+         rbuf_x = sbuf_x(:,:)[ipx,icy,icz]
+         rho_grid(nw,:,:) = rho_grid(nw,:,:) + rbuf_x
+         sync all
+         deallocate(sbuf_x)
+
+         allocate(sbuf_y(nw+2,nw+2)[nn,nn,*])
+         sync all
+         sbuf_y = rho_grid(:,nw+1,:)
+         sync all
+         rbuf_y = sbuf_y(:,:)[icx,iny,icz]
+         rho_grid(:,1,:) = rho_grid(:,1,:) + rbuf_y
+         sync all
+         sbuf_y = rho_grid(:,0,:)
+         sync all
+         rbuf_y = sbuf_y(:,:)[icx,ipy,icz]
+         rho_grid(:,nw,:) = rho_grid(:,nw,:) + rbuf_y
+         sync all
+         deallocate(sbuf_y)
+
+         allocate(sbuf_z(nw+2,nw+2)[nn,nn,*])
+         sync all
+         sbuf_z = rho_grid(:,:,nw+1)
+         sync all
+         rbuf_z = sbuf_z(:,:)[icx,icy,inz]
+         rho_grid(:,:,1) = rho_grid(:,:,1) + rbuf_z
+         sync all
+         sbuf_z = rho_grid(:,:,0)
+         sync all
+         rbuf_z = sbuf_z(:,:)[icx,icy,ipz]
+         rho_grid(:,:,nw) = rho_grid(:,:,nw) + rbuf_z
+         sync all
+         deallocate(sbuf_z)
+      end block
       do i=1,nw
          do j=1,nw
             do k=1,nw

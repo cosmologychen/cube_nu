@@ -507,12 +507,57 @@ program initial_conditions
    sync all
    ! buffer phi ---------------------------------------------------
    if (head) print*, '  buffer phi'
-   phi(:0,:,:)=phi(ngic-nb:ngic,:,:)[inx,icy,icz]; sync all
-   phi(ngic+1:,:,:)=phi(1:nb+1,:,:)[ipx,icy,icz]; sync all
-   phi(:,:0,:)=phi(:,ngic-nb:ngic,:)[icx,iny,icz]; sync all
-   phi(:,ngic+1:,:)=phi(:,1:nb+1,:)[icx,ipy,icz]; sync all
-   phi(:,:,:0)=phi(:,:,ngic-nb:ngic)[icx,icy,inz]; sync all
-   phi(:,:,ngic+1:)=phi(:,:,1:nb+1)[icx,icy,ipz]; sync all
+   block
+      real,allocatable :: send_buf(:,:,:)[:,:,:]
+      real :: recv_buf(nb+1, ngic+2*nb+2, ngic+2*nb+2)
+      allocate(send_buf(nb+1, ngic+2*nb+2, ngic+2*nb+2)[nn,nn,*])
+      sync all
+      send_buf = phi(ngic-nb:ngic, :, :)
+      sync all
+      recv_buf = send_buf(:,:,:)[inx,icy,icz]
+      phi(:0, :, :) = recv_buf
+      sync all
+      send_buf = phi(1:nb+1, :, :)
+      sync all
+      recv_buf = send_buf(:,:,:)[ipx,icy,icz]
+      phi(ngic+1:, :, :) = recv_buf
+      sync all
+      deallocate(send_buf)
+   end block
+   block
+      real,allocatable :: send_buf(:,:,:)[:,:,:]
+      real :: recv_buf(ngic+2*nb+2, nb+1, ngic+2*nb+2)
+      allocate(send_buf(ngic+2*nb+2, nb+1, ngic+2*nb+2)[nn,nn,*])
+      sync all
+      send_buf = phi(:, ngic-nb:ngic, :)
+      sync all
+      recv_buf = send_buf(:,:,:)[icx,iny,icz]
+      phi(:, :0, :) = recv_buf
+      sync all
+      send_buf = phi(:, 1:nb+1, :)
+      sync all
+      recv_buf = send_buf(:,:,:)[icx,ipy,icz]
+      phi(:, ngic+1:, :) = recv_buf
+      sync all
+      deallocate(send_buf)
+   end block
+   block
+      real,allocatable :: send_buf(:,:,:)[:,:,:]
+      real :: recv_buf(ngic+2*nb+2, ngic+2*nb+2, nb+1)
+      allocate(send_buf(ngic+2*nb+2, ngic+2*nb+2, nb+1)[nn,nn,*])
+      sync all
+      send_buf = phi(:, :, ngic-nb:ngic)
+      sync all
+      recv_buf = send_buf(:,:,:)[icx,icy,inz]
+      phi(:, :, :0) = recv_buf
+      sync all
+      send_buf = phi(:, :, 1:nb+1)
+      sync all
+      recv_buf = send_buf(:,:,:)[icx,icy,ipz]
+      phi(:, :, ngic+1:) = recv_buf
+      sync all
+      deallocate(send_buf)
+   end block
 
    if (head) print*, '  destroying FFT plans'
    call destroy_penfft_plan; sync all

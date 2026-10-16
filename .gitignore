@@ -9,3 +9,26 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# Test directories
+test/baseline/
+.test_ai/
+.kilo/
+log/
+/paper/
+
+# Images
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.svg
+*.eps
+*.tif
+*.tiff
+
+# Fortran build artifacts
+*.o
+*.x
+*.mod

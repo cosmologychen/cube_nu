@@ -326,12 +326,55 @@ contains
       sync all
       ! if (head) print*, 'sync buffer'
       sync all
-      rho_grid(1,:,:)=rho_grid(1,:,:)+rho_grid(nfg+1,:,:)[inx,icy,icz]
-      rho_grid(nfg,:,:)=rho_grid(nfg,:,:)+rho_grid(0,:,:)[ipx,icy,icz]; sync all
-      rho_grid(:,1,:)=rho_grid(:,1,:)+rho_grid(:,nfg+1,:)[icx,iny,icz]
-      rho_grid(:,nfg,:)=rho_grid(:,nfg,:)+rho_grid(:,0,:)[icx,ipy,icz]; sync all
-      rho_grid(:,:,1)=rho_grid(:,:,1)+rho_grid(:,:,nfg+1)[icx,icy,inz]
-      rho_grid(:,:,nfg)=rho_grid(:,:,nfg)+rho_grid(:,:,0)[icx,icy,ipz]; sync all
+      block
+         real,allocatable :: sbuf_x(:,:)[:,:,:]
+         real,allocatable :: sbuf_y(:,:)[:,:,:]
+         real,allocatable :: sbuf_z(:,:)[:,:,:]
+         real :: rbuf_x(nfg+2,nfg+2)
+         real :: rbuf_y(nfg+2,nfg+2)
+         real :: rbuf_z(nfg+2,nfg+2)
+         allocate(sbuf_x(nfg+2,nfg+2)[nn,nn,*])
+         sync all
+         sbuf_x = rho_grid(nfg+1,:,:)
+         sync all
+         rbuf_x = sbuf_x(:,:)[inx,icy,icz]
+         rho_grid(1,:,:) = rho_grid(1,:,:) + rbuf_x
+         sync all
+         sbuf_x = rho_grid(0,:,:)
+         sync all
+         rbuf_x = sbuf_x(:,:)[ipx,icy,icz]
+         rho_grid(nfg,:,:) = rho_grid(nfg,:,:) + rbuf_x
+         sync all
+         deallocate(sbuf_x)
+
+         allocate(sbuf_y(nfg+2,nfg+2)[nn,nn,*])
+         sync all
+         sbuf_y = rho_grid(:,nfg+1,:)
+         sync all
+         rbuf_y = sbuf_y(:,:)[icx,iny,icz]
+         rho_grid(:,1,:) = rho_grid(:,1,:) + rbuf_y
+         sync all
+         sbuf_y = rho_grid(:,0,:)
+         sync all
+         rbuf_y = sbuf_y(:,:)[icx,ipy,icz]
+         rho_grid(:,nfg,:) = rho_grid(:,nfg,:) + rbuf_y
+         sync all
+         deallocate(sbuf_y)
+
+         allocate(sbuf_z(nfg+2,nfg+2)[nn,nn,*])
+         sync all
+         sbuf_z = rho_grid(:,:,nfg+1)
+         sync all
+         rbuf_z = sbuf_z(:,:)[icx,icy,inz]
+         rho_grid(:,:,1) = rho_grid(:,:,1) + rbuf_z
+         sync all
+         sbuf_z = rho_grid(:,:,0)
+         sync all
+         rbuf_z = sbuf_z(:,:)[icx,icy,ipz]
+         rho_grid(:,:,nfg) = rho_grid(:,:,nfg) + rbuf_z
+         sync all
+         deallocate(sbuf_z)
+      end block
       do i=1,nfg
          do j=1,nfg
             do k=1,nfg
@@ -897,12 +940,55 @@ contains
       sync all
       ! if (head) print*, 'sync buffer'
       sync all
-      rho_grid(1,:,:)=rho_grid(1,:,:)+rho_grid(nw+1,:,:)[inx,icy,icz]
-      rho_grid(nw,:,:)=rho_grid(nw,:,:)+rho_grid(0,:,:)[ipx,icy,icz]; sync all
-      rho_grid(:,1,:)=rho_grid(:,1,:)+rho_grid(:,nw+1,:)[icx,iny,icz]
-      rho_grid(:,nw,:)=rho_grid(:,nw,:)+rho_grid(:,0,:)[icx,ipy,icz]; sync all
-      rho_grid(:,:,1)=rho_grid(:,:,1)+rho_grid(:,:,nw+1)[icx,icy,inz]
-      rho_grid(:,:,nw)=rho_grid(:,:,nw)+rho_grid(:,:,0)[icx,icy,ipz]; sync all
+      block
+         real,allocatable :: sbuf_x(:,:)[:,:,:]
+         real,allocatable :: sbuf_y(:,:)[:,:,:]
+         real,allocatable :: sbuf_z(:,:)[:,:,:]
+         real :: rbuf_x(nw+2,nw+2)
+         real :: rbuf_y(nw+2,nw+2)
+         real :: rbuf_z(nw+2,nw+2)
+         allocate(sbuf_x(nw+2,nw+2)[nn,nn,*])
+         sync all
+         sbuf_x = rho_grid(nw+1,:,:)
+         sync all
+         rbuf_x = sbuf_x(:,:)[inx,icy,icz]
+         rho_grid(1,:,:) = rho_grid(1,:,:) + rbuf_x
+         sync all
+         sbuf_x = rho_grid(0,:,:)
+         sync all
+         rbuf_x = sbuf_x(:,:)[ipx,icy,icz]
+         rho_grid(nw,:,:) = rho_grid(nw,:,:) + rbuf_x
+         sync all
+         deallocate(sbuf_x)
+
+         allocate(sbuf_y(nw+2,nw+2)[nn,nn,*])
+         sync all
+         sbuf_y = rho_grid(:,nw+1,:)
+         sync all
+         rbuf_y = sbuf_y(:,:)[icx,iny,icz]
+         rho_grid(:,1,:) = rho_grid(:,1,:) + rbuf_y
+         sync all
+         sbuf_y = rho_grid(:,0,:)
+         sync all
+         rbuf_y = sbuf_y(:,:)[icx,ipy,icz]
+         rho_grid(:,nw,:) = rho_grid(:,nw,:) + rbuf_y
+         sync all
+         deallocate(sbuf_y)
+
+         allocate(sbuf_z(nw+2,nw+2)[nn,nn,*])
+         sync all
+         sbuf_z = rho_grid(:,:,nw+1)
+         sync all
+         rbuf_z = sbuf_z(:,:)[icx,icy,inz]
+         rho_grid(:,:,1) = rho_grid(:,:,1) + rbuf_z
+         sync all
+         sbuf_z = rho_grid(:,:,0)
+         sync all
+         rbuf_z = sbuf_z(:,:)[icx,icy,ipz]
+         rho_grid(:,:,nw) = rho_grid(:,:,nw) + rbuf_z
+         sync all
+         deallocate(sbuf_z)
+      end block
       do i=1,nw
          do j=1,nw
             do k=1,nw

@@ -18,31 +18,74 @@ subroutine buffer_np
    use variables
    implicit none
    save
+   integer,allocatable :: sbuf_x(:,:,:,:,:)[:,:,:]
+   integer,allocatable :: sbuf_y(:,:,:,:,:)[:,:,:]
+   integer,allocatable :: sbuf_z(:,:,:,:,:)[:,:,:]
+   integer :: rbuf_x(ncb,nte,nte,nnt,nnt)
+   integer :: rbuf_y(nte,ncb,nte,nnt,nnt)
+   integer :: rbuf_z(nte,nte,ncb,nnt,nnt)
+
    call tic(7)
    if (head) then
       print*, 'buffer_np'
    endif
    sync all
-   !!$omp workshare
-   rhoc(:0,:,:,1,:,:)=rhoc(nt-ncb+1:nt,:,:,nnt,:,:)[inx,icy,icz]
+
+   ! x-direction buffer exchange with contiguous packing
+   allocate(sbuf_x(ncb,nte,nte,nnt,nnt)[nn,nn,*])
+   sync all
+   sbuf_x = rhoc(nt-ncb+1:nt,:,:,nnt,:,:)
+   sync all
+   rbuf_x = sbuf_x(:,:,:,:,:)[inx,icy,icz]
+   rhoc(:0,:,:,1,:,:) = rbuf_x
+   sync all
+   sbuf_x = rhoc(1:ncb,:,:,1,:,:)
+   sync all
+   rbuf_x = sbuf_x(:,:,:,:,:)[ipx,icy,icz]
+   rhoc(nt+1:,:,:,nnt,:,:) = rbuf_x
+   sync all
+   deallocate(sbuf_x)
+
    rhoc(:0,:,:,2:,:,:)=rhoc(nt-ncb+1:nt,:,:,:nnt-1,:,:)
-   rhoc(nt+1:,:,:,nnt,:,:)=rhoc(1:ncb,:,:,1,:,:)[ipx,icy,icz]
    rhoc(nt+1:,:,:,:nnt-1,:,:)=rhoc(1:ncb,:,:,2:,:,:)
-   !!$omp endworkshare
    sync all
-   !!$omp workshare
-   rhoc(:,:0,:,:,1,:)=rhoc(:,nt-ncb+1:nt,:,:,nnt,:)[icx,iny,icz]
-   rhoc(:,:0,:,:,2:,:)=rhoc(:,nt-ncb+1:nt,:,:,1:nnt-1,:)
-   rhoc(:,nt+1:,:,:,nnt,:)=rhoc(:,1:ncb,:,:,1,:)[icx,ipy,icz]
-   rhoc(:,nt+1:,:,:,:nnt-1,:)=rhoc(:,1:ncb,:,1:,2:,:)
-   !!$omp endworkshare
+
+   ! y-direction buffer exchange with contiguous packing
+   allocate(sbuf_y(nte,ncb,nte,nnt,nnt)[nn,nn,*])
    sync all
-   !!$omp workshare
-   rhoc(:,:,:0,:,:,1)=rhoc(:,:,nt-ncb+1:nt,:,:,nnt)[icx,icy,inz]
+   sbuf_y = rhoc(:,nt-ncb+1:nt,:,:,nnt,:)
+   sync all
+   rbuf_y = sbuf_y(:,:,:,:,:)[icx,iny,icz]
+   rhoc(:,:0,:,:,1,:) = rbuf_y
+   sync all
+   sbuf_y = rhoc(:,1:ncb,:,:,1,:)
+   sync all
+   rbuf_y = sbuf_y(:,:,:,:,:)[icx,ipy,icz]
+   rhoc(:,nt+1:,:,:,nnt,:) = rbuf_y
+   sync all
+   deallocate(sbuf_y)
+
+   rhoc(:,:0,:,:,2:,:)=rhoc(:,nt-ncb+1:nt,:,:,:nnt-1,:)
+   rhoc(:,nt+1:,:,:,:nnt-1,:)=rhoc(:,1:ncb,:,:,2:,:)
+   sync all
+
+   ! z-direction buffer exchange with contiguous packing
+   allocate(sbuf_z(nte,nte,ncb,nnt,nnt)[nn,nn,*])
+   sync all
+   sbuf_z = rhoc(:,:,nt-ncb+1:nt,:,:,nnt)
+   sync all
+   rbuf_z = sbuf_z(:,:,:,:,:)[icx,icy,inz]
+   rhoc(:,:,:0,:,:,1) = rbuf_z
+   sync all
+   sbuf_z = rhoc(:,:,1:ncb,:,:,1)
+   sync all
+   rbuf_z = sbuf_z(:,:,:,:,:)[icx,icy,ipz]
+   rhoc(:,:,nt+1:,:,:,nnt) = rbuf_z
+   sync all
+   deallocate(sbuf_z)
+
    rhoc(:,:,:0,:,:,2:)=rhoc(:,:,nt-ncb+1:nt,:,:,:nnt-1)
-   rhoc(:,:,nt+1:,:,:,nnt)=rhoc(:,:,1:ncb,:,:,1)[icx,icy,ipz]
    rhoc(:,:,nt+1:,:,:,:nnt-1)=rhoc(:,:,1:ncb,:,:,2:)
-   !!$omp endworkshare
    sync all
    call toc(7)
 endsubroutine

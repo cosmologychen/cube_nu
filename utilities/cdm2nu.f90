@@ -7,9 +7,9 @@ program cdm2nu
 
   integer,parameter :: Nmnus = 3
   character(300),parameter :: top_path = '/home/cossim/cube_nu/output/2400_512_1_'
-  character(10),parameter,dimension(Nmnus) :: Mnus=&
+  character(10),dimension(Nmnus) :: Mnus=&
   ['0.05' &
-  ,'0.1'  &
+  ,'0.10'  &
   ,'0.15' ]
 
   character(300) :: fn_tf

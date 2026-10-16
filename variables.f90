@@ -30,7 +30,7 @@ module variables
    integer ifs,itx,ity,itz,ifx,ify,ifz,iapm,napm(7)[*]
    integer(8) plan1,plan2(nteam),plan3(nteam,2:7),iplan1,iplan2(nteam),iplan3(nteam,2:7),plan0,iplan0 ! FFT plans
    integer(4) ijk(3,n_neighbor),iteam,ipm2,ipm3,ixyz2(3,nnt**3),ixyz3(6,(nnt*nns)**3)
-   integer(OMP_integer_kind) ith,nth
+   ! integer(OMP_integer_kind) ith,nth
 
    real dt[*],dt_old[*],dt_mid[*],dt_e,da[*],a_mid[*],f2_max_pp[*]
    real vmax(3),vmax_team(3),f2max,f2max_team,overhead_tile[*],overhead_image[*],sigma_vi,sigma_vi_new,svz(500,2),svr(100,2)
@@ -116,16 +116,64 @@ contains
       implicit none
       integer(8) n
       real pot(-2:n+3,-2:n+3,-2:n+3)[nn,nn,*]
+      real,allocatable :: send1(:,:,:)[:,:,:], send2(:,:,:)[:,:,:]
       sync all
-      pot(:0,:,:)=pot(n-2:n,:,:)[inx,icy,icz]
-      pot(n+1:,:,:)=pot(1:3,:,:)[ipx,icy,icz]
-      sync all
-      pot(:,:0,:)=pot(:,n-2:n,:)[icx,iny,icz]
-      pot(:,n+1:,:)=pot(:,1:3,:)[icx,ipy,icz]
-      sync all
-      pot(:,:,:0)=pot(:,:,n-2:n)[icx,icy,inz]
-      pot(:,:,n+1:)=pot(:,:,1:3)[icx,icy,ipz]
-      sync all
+       if (nn==1) then
+          pot(:0,:,:)=pot(n-2:n,:,:)
+          pot(n+1:,:,:)=pot(1:3,:,:)
+          sync all
+          pot(:,:0,:)=pot(:,n-2:n,:)
+          pot(:,n+1:,:)=pot(:,1:3,:)
+          sync all
+          pot(:,:,:0)=pot(:,:,n-2:n)
+          pot(:,:,n+1:)=pot(:,:,1:3)
+       else
+          allocate(send1(3,n+6,n+6)[nn,nn,*], send2(3,n+6,n+6)[nn,nn,*])
+          block
+             real :: recv1(3,n+6,n+6), recv2(3,n+6,n+6)
+             sync all
+             send1 = pot(n-2:n,:,:)
+             send2 = pot(1:3,:,:)
+             sync all
+             recv1 = send1(:,:,:)[inx,icy,icz]
+             recv2 = send2(:,:,:)[ipx,icy,icz]
+             pot(:0,:,:) = recv1
+             pot(n+1:,:,:) = recv2
+             sync all
+          end block
+          deallocate(send1, send2)
+
+          allocate(send1(n+6,3,n+6)[nn,nn,*], send2(n+6,3,n+6)[nn,nn,*])
+          block
+             real :: recv1(n+6,3,n+6), recv2(n+6,3,n+6)
+             sync all
+             send1 = pot(:,n-2:n,:)
+             send2 = pot(:,1:3,:)
+             sync all
+             recv1 = send1(:,:,:)[icx,iny,icz]
+             recv2 = send2(:,:,:)[icx,ipy,icz]
+             pot(:,:0,:) = recv1
+             pot(:,n+1:,:) = recv2
+             sync all
+          end block
+          deallocate(send1, send2)
+
+          allocate(send1(n+6,n+6,3)[nn,nn,*], send2(n+6,n+6,3)[nn,nn,*])
+          block
+             real :: recv1(n+6,n+6,3), recv2(n+6,n+6,3)
+             sync all
+             send1 = pot(:,:,n-2:n)
+             send2 = pot(:,:,1:3)
+             sync all
+             recv1 = send1(:,:,:)[icx,icy,inz]
+             recv2 = send2(:,:,:)[icx,icy,ipz]
+             pot(:,:,:0) = recv1
+             pot(:,:,n+1:) = recv2
+             sync all
+          end block
+          deallocate(send1, send2)
+       endif
+       sync all
    endsubroutine
 
 ! #ifdef ZIPX

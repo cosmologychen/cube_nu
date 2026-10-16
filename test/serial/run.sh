@@ -3,6 +3,7 @@ set -euo pipefail
 
 # 仓库根目录和串行测试输出目录
 code_path="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "${code_path}/env.sh"
 result_path="${code_path}/../test/serial"
 work_path="${result_path}/../code/serial"
 
@@ -19,7 +20,7 @@ mkdir -p "${work_path}"
 mkdir -p "${result_path}/neutrinos" "${result_path}/image1"
 
 # 复制源码，排除测试目录，避免递归复制测试输出
-rsync -a --exclude='test' --exclude='test/baseline/serial' "${code_path}/" "${work_path}/"
+rsync -a --exclude='test' --exclude='log/' --exclude='.*/' "${code_path}/" "${work_path}/"
 cp -v $code_path/test/serial/parameters.f90 $work_path/parameters.f90
 
 # 串行测试只使用 baseline/noise/image1 的输入
@@ -43,9 +44,9 @@ MAIN=./main.x
 CIC=./utilities/cicpower.x
 
 # 运行初始条件、主程序和 CIC 功率谱计算。
-"${IC}"
-"${MAIN}"
-"${CIC}"
+cafrun -np 1 "${IC}"
+cafrun -np 1 "${MAIN}"
+cafrun -np 1 "${CIC}"
 
 
 # 设置新的检查点
@@ -54,6 +55,7 @@ sed -i "s#.*sim%cur_checkpoint=.* !set checkpoint number#   sim%cur_checkpoint=5
 
 # 运行主程序-测试断点续传
 make
-$MAIN
+cafrun -np 1 "${MAIN}"
 
 echo "串行 serial 测试完成：${result_path}/serial"
+python "${code_path}/test/serial/compare.py"
