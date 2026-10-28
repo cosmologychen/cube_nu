@@ -31,7 +31,7 @@ make
 cd utilities
 make ic.x        # 初始条件生成程序
 make cicpower.x  # CIC 功率谱计算程序
-make fof.x       # 晕查找程序
+make fof.x       # FoF 晕查找及束缚检查
 make dsp.x       # 位移场计算程序
 make cdm2nu.x    # CDM 到中微子转换程序
 make gadget.x    # Gadget 格式输出程序
@@ -141,6 +141,24 @@ cd ..
 ./RUN -h0 0.67 -omc 0.25 -omb 0.05 -ns 0.96
 ```
 
+### 运行 FoF 及束缚检查
+```bash
+ulimit -s unlimited
+OMP_DYNAMIC=FALSE MKL_NUM_THREADS=1 ./utilities/fof.x > fof.log 2>&1
+```
+
+无需命令行参数。运行前在 `parameters.f90` 中设置快照路径 `opath`（末尾带 `/`）、链接长度比例 `b_link`（默认 `0.2`）和粒子数门槛 `np_halo_min`（默认 `10`，FoF 保留粒子数大于该值的组）。其余模拟参数须与已有快照一致，修改后重新 `make`。
+
+FoF 并行线程数由 `utilities/fof.f90` 中的 `fofcore` 控制，默认取 `ncore`；也可直接将 `fofcore` 设为所需线程数，不必修改全局 `ncore`。
+
+束缚检查的主要设置：
+- `utilities/fof.f90` 调用 `bound_check_batch` 时的 `configuration`：`6`、`8`、`9` 分别使用16、32、64线程预算，当前设为 `8`，与 FoF 的 `fofcore` 独立。
+- `parameters.f90` 的 `app`：引力软化长度，以标准粒子间距为单位，当前为 `0.06`；`np_halo_min` 同时作为束缚成员数下限，少于该值时不保留束缚晕。
+- `utilities/bound.f90` 的 `bound_max_passes`：去束缚最大外层迭代次数，默认 `20`；达到上限仍未收敛的结果保留并标记为 `MAX_ITER`。
+- `utilities/bound.f90` 的 `batch_fraction=0.02`、`refresh_fraction=0.20`：每批按当前剩余成员数的2%选取非束缚成员删除（向上取整、至少1个，不超过实际非束缚成员数），累计删除数达到当前剩余成员数的20%时结束本轮并刷新势。通常保持默认值，修改上述设置后重新 `make`。
+
+在项目根目录的 `z_checkpoint.txt` 中填写已有快照的红移，每行一个，如 `  0.2030`；当前 FoF 只处理最后一行对应的快照。
+
 ## 程序模块
 
 ### 初始条件 (IC)
@@ -161,8 +179,11 @@ cd ..
 - `cicpower_global.f90`: 全局功率谱计算
 - `cicpower_segment.f90`: 分段功率谱计算
 
-### 晕查找 (FOF)
-使用 Friends-of-Friends 算法进行暗晕识别
+### 晕查找及束缚检查 (FoF)
+使用 Friends-of-Friends 算法识别暗晕，再迭代去除各晕中的非束缚成员：
+- 保留原始 FoF 目录及完整成员
+- 额外输出束缚目录、成员及检查状态
+- 不进行 subhalo 检测
 
 ### Gadget 输出
 将模拟结果输出为 Gadget 格式
@@ -193,7 +214,9 @@ cube_nu_new/
 ├── utilities/       # 工具程序
 │   ├── ic.f90       # 初始条件生成
 │   ├── cicpower.f90 # 功率谱计算
-│   ├── fof.f90      # 晕查找
+│   ├── fof.f90      # FoF 晕查找及结果输出
+│   ├── bound.f90    # 束缚检查
+│   ├── atomic_dsu.c # FoF 原子操作后端
 │   ├── dsp.x        # 位移场
 │   ├── cdm2nu.f90   # CDM2Nu 转换
 │   ├── gadget.x    # Gadget 输出
@@ -233,6 +256,7 @@ export FOR_COARRAY_NUM_IMAGES=8
   - `*_vk_*.bin`: 粒子速度文件
 - `checkpoint/`: 检查点文件
 - `powerSpectrum/`: 功率谱数据
+- `fof/`: 原始 FoF 和束缚检查后的晕目录、完整成员、状态及日志（重跑覆盖同名结果）
 
 ## 注意事项
 
@@ -241,3 +265,4 @@ export FOR_COARRAY_NUM_IMAGES=8
 3. 中微子质量可通过 `-mnus` 或 `-Mnu` 设置
 4. 使用 `-Y` 选项可跳过所有确认提示
 5. 运行时需确保输出路径有足够磁盘空间
+6. FoF 束缚检查目前要求 `ng>=256`，不能通过改写已有快照的网格参数来绕过限制；每个进程需按 FoF 的 `fofcore` 与束缚检查所选线程预算中的较大值申请 CPU（当前束缚预算为32线程）
