@@ -19,8 +19,18 @@ cdm2nu.x: cdm2nu.o parameters.o pencil_fft.o
 	$(FC) $(XFLAG) $(OPTIONS) $(FFTFLAG)  $^ -o $@
 gadget.x: write_gadget_format.o parameters.o
 	$(FC) $(XFLAG) $(OPTIONS) $^ -o $@
-fof.x: parameters.o variables.o fof.o
-	$(FC) $(XFLAG) $(OPTIONS) $^ -o $@
+FOF_CFLAGS ?= -O3 -std=c11
+FOF_FFT_LIBS ?= -qmkl=sequential
+
+fof.x: parameters.o variables.o bound.o atomic_dsu.o fof.o
+	$(FC) $(XFLAG) $(OPTIONS) $^ $(FFTFLAG) $(FOF_FFT_LIBS) -o $@
+
+bound.o: bound.f90 parameters.o
+	$(FC) $(OFLAG) $(OPTIONS) $< -o $@
+atomic_dsu.o: atomic_dsu.c
+	$(CC) $(FOF_CFLAGS) -c $< -o $@
+fof.o: fof.f90 parameters.o variables.o bound.o
+	$(FC) $(OFLAG) $(OPTIONS) $(FFTFLAG) $< -o $@
 int2real.x: parameters.o variables.o int2real.o
 	$(FC) $(XFLAG) $(OPTIONS) $^ -o $@
 fof_merge.x: parameters.o variables.o fof_merge.o
